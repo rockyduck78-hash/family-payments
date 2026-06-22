@@ -7,6 +7,7 @@ const jwt = require('jsonwebtoken');
 const rateLimit = require('express-rate-limit');
 
 const app = express();
+app.use(cors());
 app.use(express.json());
 app.use(cors());
 

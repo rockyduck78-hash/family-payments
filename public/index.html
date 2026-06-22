@@ -189,12 +189,28 @@
         }
 
         // --- AUTH ---
+        // Accept token from URL params (for integration with family-finance)
+        const urlParams = new URLSearchParams(window.location.search);
+        const urlToken = urlParams.get('token');
+        if (urlToken) {
+            token = urlToken;
+            localStorage.setItem('fp_token', token);
+        }
+
+        if (!token) {
+            // Try to use family-finance token from localStorage
+            const existingToken = localStorage.getItem('ff_token') || localStorage.getItem('token');
+            if (existingToken) {
+                token = existingToken;
+                localStorage.setItem('fp_token', token);
+            }
+        }
+
         if (!token) {
             const pw = prompt('Enter your Family Finance password:');
             const user = prompt('Enter your Family Finance username:');
             if (pw && user) {
                 try {
-                    // Try to get a token from family-finance
                     const r = await fetch('https://family-finance-olive-nine.vercel.app/api/login', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
