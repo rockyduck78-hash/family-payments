@@ -37,27 +37,51 @@
         .tx-in { color: #66bb6a; }
         .tx-out { color: #ef5350; }
         .tx-date { color: #78909c; font-size: 0.8em; }
-        .tabs { display: flex; gap: 8px; margin-bottom: 16px; }
-        .tabs button { flex: 1; }
+        .tabs { display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; }
+        .tabs button { flex: 1; min-width: 80px; }
         .tabs button.active { background: #0d47a1; }
         #status-bar { margin-bottom: 16px; }
+        .login-box { max-width: 400px; margin: 80px auto; }
+        .login-box h1 { text-align: center; }
+        .login-box .card { padding: 30px; }
+        .login-box button { width: 100%; margin-top: 8px; }
     </style>
 </head>
 <body>
-    <div class="container">
+    <!-- LOGIN SCREEN -->
+    <div id="login-screen" class="container login-box hidden">
         <h1>Family Payments</h1>
-        <p class="subtitle">Send and receive money — linked to Doublons Bank</p>
+        <p class="subtitle" style="text-align:center;">Log in with your Family Finance account</p>
+        <div id="login-status"></div>
+        <div class="card">
+            <label>Username</label>
+            <input type="text" id="login-user" placeholder="Username">
+            <label>Password</label>
+            <input type="password" id="login-pw" placeholder="Password">
+            <button onclick="doLogin()">Log In</button>
+            <p style="color:#78909c;font-size:0.85em;margin-top:12px;text-align:center;">Don't have an account? Register at <a href="https://family-finance-olive-nine.vercel.app" target="_blank" style="color:#4fc3f7;">Family Finance</a></p>
+        </div>
+    </div>
+
+    <!-- MAIN APP -->
+    <div id="main-app" class="container hidden">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+            <div>
+                <h1>Family Payments</h1>
+                <p class="subtitle">Send and receive money</p>
+            </div>
+            <button onclick="doLogout()" style="background:#37474f;">Log Out</button>
+        </div>
         <div id="status-bar"></div>
 
         <div class="tabs">
-            <button class="active" onclick="showTab('accounts')">Accounts</button>
-            <button onclick="showTab('transfer')">Transfer</button>
-            <button onclick="showTab('doublons')">Doublons Bank</button>
-            <button onclick="showTab('requests')">Requests</button>
-            <button onclick="showTab('history')">History</button>
+            <button class="active" onclick="showTab('accounts', this)">Accounts</button>
+            <button onclick="showTab('transfer', this)">Transfer</button>
+            <button onclick="showTab('doublons', this)">Doublons Bank</button>
+            <button onclick="showTab('requests', this)">Requests</button>
+            <button onclick="showTab('history', this)">History</button>
         </div>
 
-        <!-- ACCOUNTS TAB -->
         <div id="tab-accounts" class="tab-content">
             <div class="card">
                 <h2>Your Accounts</h2>
@@ -71,7 +95,6 @@
             </div>
         </div>
 
-        <!-- TRANSFER TAB -->
         <div id="tab-transfer" class="tab-content hidden">
             <div class="card">
                 <h2>Internal Transfer</h2>
@@ -87,7 +110,6 @@
             </div>
         </div>
 
-        <!-- DOUBLONS TAB -->
         <div id="tab-doublons" class="tab-content hidden">
             <div class="card">
                 <h2>Link Doublons Bank</h2>
@@ -102,7 +124,7 @@
                 </div>
                 <div id="doublons-status"></div>
             </div>
-            <div class="card" id="doublons-accounts-card" style="display:none;">
+            <div class="card hidden" id="doublons-accounts-card">
                 <h2>Doublons Accounts</h2>
                 <div id="doublons-accounts-list"></div>
                 <label>Link to Payment Account</label>
@@ -131,11 +153,10 @@
             </div>
         </div>
 
-        <!-- REQUESTS TAB -->
         <div id="tab-requests" class="tab-content hidden">
             <div class="card">
                 <h2>Request Money</h2>
-                <label>From Account ID</label>
+                <label>To Account ID (recipient's account)</label>
                 <input type="text" id="req-to" placeholder="Their account ID">
                 <input type="number" id="req-amount" step="0.01" min="0.01" placeholder="Amount">
                 <input type="text" id="req-note" placeholder="Note">
@@ -143,269 +164,263 @@
             </div>
             <div class="card">
                 <h2>Pending Requests</h2>
-                <div id="requests-list"></div>
+                <div id="requests-list"><p style="color:#78909c;">Loading...</p></div>
             </div>
         </div>
 
-        <!-- HISTORY TAB -->
         <div id="tab-history" class="tab-content hidden">
             <div class="card">
                 <h2>Transaction History</h2>
-                <div id="history-list"></div>
+                <div id="history-list"><p style="color:#78909c;">Loading...</p></div>
             </div>
         </div>
     </div>
 
     <script>
-        const API = window.location.origin;
-        let token = localStorage.getItem('fp_token');
-        let accounts = [];
-        let doublonsToken = null;
+    (function() {
+        var API = window.location.origin;
+        var token = localStorage.getItem('fp_token');
+        var accounts = [];
+        var doublonsToken = null;
 
-        function showTab(tab) {
-            document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
+        function showScreen(name) {
+            document.getElementById('login-screen').classList.add('hidden');
+            document.getElementById('main-app').classList.add('hidden');
+            document.getElementById(name).classList.remove('hidden');
+        }
+
+        window.showTab = function(tab, btn) {
+            document.querySelectorAll('.tab-content').forEach(function(el) { el.classList.add('hidden'); });
             document.getElementById('tab-' + tab).classList.remove('hidden');
-            document.querySelectorAll('.tabs button').forEach(b => b.classList.remove('active'));
-            event.target.classList.add('active');
+            document.querySelectorAll('.tabs button').forEach(function(b) { b.classList.remove('active'); });
+            if (btn) btn.classList.add('active');
             if (tab === 'accounts') loadAccounts();
             if (tab === 'transfer') loadAccounts();
             if (tab === 'history') loadHistory();
             if (tab === 'requests') loadRequests();
-        }
+        };
 
         function setStatus(msg, type) {
-            const el = document.getElementById('status-bar');
+            var el = document.getElementById('status-bar');
+            if (!el) el = document.getElementById('login-status');
+            if (!el) return;
             el.innerHTML = '<div class="status ' + type + '">' + msg + '</div>';
-            if (type !== 'error') setTimeout(() => el.innerHTML = '', 4000);
+            if (type !== 'error') setTimeout(function() { el.innerHTML = ''; }, 4000);
         }
 
-        async function apiFetch(path, opts = {}) {
-            const headers = { 'Content-Type': 'application/json' };
+        function apiFetch(path, opts) {
+            opts = opts || {};
+            var headers = { 'Content-Type': 'application/json' };
             if (token) headers['Authorization'] = 'Bearer ' + token;
-            const r = await fetch(API + path, { ...opts, headers });
-            const data = await r.json();
-            if (!r.ok) throw new Error(data.error || 'Request failed');
-            return data;
+            return fetch(API + path, { method: opts.method || 'GET', headers: headers, body: opts.body || undefined })
+                .then(function(r) { return r.json().then(function(data) { if (!r.ok) throw new Error(data.error || 'Request failed'); return data; }); });
         }
 
-        // --- AUTH ---
-        // Accept token from URL params (for integration with family-finance)
-        const urlParams = new URLSearchParams(window.location.search);
-        const urlToken = urlParams.get('token');
-        if (urlToken) {
-            token = urlToken;
-            localStorage.setItem('fp_token', token);
-        }
-
-        if (!token) {
-            // Try to use family-finance token from localStorage
-            const existingToken = localStorage.getItem('ff_token') || localStorage.getItem('token');
-            if (existingToken) {
-                token = existingToken;
+        function tryAutoLogin() {
+            var urlParams = new URLSearchParams(window.location.search);
+            var urlToken = urlParams.get('token');
+            if (urlToken) {
+                token = urlToken;
                 localStorage.setItem('fp_token', token);
             }
+            if (token) {
+                showScreen('main-app');
+                loadAccounts();
+                return true;
+            }
+            return false;
         }
 
-        if (!token) {
-            const pw = prompt('Enter your Family Finance password:');
-            const user = prompt('Enter your Family Finance username:');
-            if (pw && user) {
-                try {
-                    const r = await fetch('https://family-finance-olive-nine.vercel.app/api/login', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ username: user, password: pw })
-                    });
-                    const data = await r.json();
-                    if (r.ok && data.token) {
-                        token = data.token;
-                        localStorage.setItem('fp_token', token);
-                        setStatus('Logged in as ' + user, 'ok');
-                    } else {
-                        setStatus('Login failed: ' + (data.error || 'Unknown'), 'error');
-                    }
-                } catch (e) {
-                    setStatus('Login failed: ' + e.message, 'error');
+        window.doLogin = function() {
+            var user = document.getElementById('login-user').value.trim();
+            var pw = document.getElementById('login-pw').value;
+            if (!user || !pw) return setStatus('Enter username and password', 'error');
+            setStatus('Logging in...', 'info');
+            fetch(API + '/api/accounts', {
+                headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + 'test' }
+            }).then(function() {
+                return fetch('https://family-finance-olive-nine.vercel.app/api/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username: user, password: pw })
+                });
+            }).then(function(r) { return r.json(); })
+            .then(function(data) {
+                if (data.token) {
+                    token = data.token;
+                    localStorage.setItem('fp_token', token);
+                    showScreen('main-app');
+                    loadAccounts();
+                } else {
+                    setStatus('Login failed: ' + (data.error || 'Wrong credentials'), 'error');
                 }
-            }
-        }
+            }).catch(function(e) {
+                setStatus('Login failed: ' + e.message, 'error');
+            });
+        };
 
-        // --- ACCOUNTS ---
-        async function loadAccounts() {
-            try {
-                accounts = await apiFetch('/api/accounts');
+        window.doLogout = function() {
+            token = null;
+            localStorage.removeItem('fp_token');
+            showScreen('login-screen');
+        };
+
+        function loadAccounts() {
+            if (!token) return;
+            apiFetch('/api/accounts').then(function(data) {
+                accounts = data;
                 renderAccounts();
-            } catch (e) {
-                setStatus('Failed to load accounts: ' + e.message, 'error');
-            }
-        }
-
-        function renderAccounts() {
-            const list = document.getElementById('accounts-list');
-            const selects = ['tx-from', 'doublons-link-account', 'wd-from', 'dep-to'];
-            if (accounts.length === 0) {
-                list.innerHTML = '<p style="color:#78909c;">No accounts yet. Create one above.</p>';
-            } else {
-                list.innerHTML = accounts.map(a =>
-                    '<div class="account">' +
-                    '<div><span class="account-name">' + a.name + '</span>' +
-                    (a.doublonsAccountId ? '<span class="doublons-badge">Doublons Linked</span>' : '') +
-                    '<br><span class="account-meta">ID: ' + a._id + '</span></div>' +
-                    '<div style="text-align:right;"><span class="account-balance">$' + a.balance.toFixed(2) + '</span>' +
-                    '<br><span class="account-meta">' + a.currency + '</span></div></div>'
-                ).join('');
-            }
-            selects.forEach(id => {
-                const sel = document.getElementById(id);
-                if (sel) {
-                    sel.innerHTML = accounts.map(a => '<option value="' + a._id + '">' + a.name + ' ($' + a.balance.toFixed(2) + ')</option>').join('');
+            }).catch(function(e) {
+                if (e.message.indexOf('401') > -1 || e.message.indexOf('Authentication') > -1) {
+                    showScreen('login-screen');
                 }
             });
         }
 
-        async function createAccount() {
-            const name = document.getElementById('new-account-name').value.trim();
+        function renderAccounts() {
+            var list = document.getElementById('accounts-list');
+            var selectIds = ['tx-from', 'doublons-link-account', 'wd-from', 'dep-to'];
+            if (accounts.length === 0) {
+                list.innerHTML = '<p style="color:#78909c;">No accounts yet. Create one above.</p>';
+            } else {
+                list.innerHTML = accounts.map(function(a) {
+                    return '<div class="account">' +
+                        '<div><span class="account-name">' + escapeHtml(a.name) + '</span>' +
+                        (a.doublonsAccountId ? '<span class="doublons-badge">Doublons Linked</span>' : '') +
+                        '<br><span class="account-meta">ID: ' + a._id + '</span></div>' +
+                        '<div style="text-align:right;"><span class="account-balance">$' + a.balance.toFixed(2) + '</span>' +
+                        '<br><span class="account-meta">' + a.currency + '</span></div></div>';
+                }).join('');
+            }
+            selectIds.forEach(function(id) {
+                var sel = document.getElementById(id);
+                if (sel) {
+                    sel.innerHTML = accounts.map(function(a) {
+                        return '<option value="' + a._id + '">' + escapeHtml(a.name) + ' ($' + a.balance.toFixed(2) + ')</option>';
+                    }).join('');
+                }
+            });
+        }
+
+        function escapeHtml(s) {
+            var d = document.createElement('div');
+            d.appendChild(document.createTextNode(s));
+            return d.innerHTML;
+        }
+
+        window.createAccount = function() {
+            var name = document.getElementById('new-account-name').value.trim();
             if (!name) return;
-            try {
-                await apiFetch('/api/accounts', { method: 'POST', body: JSON.stringify({ name }) });
+            apiFetch('/api/accounts', { method: 'POST', body: JSON.stringify({ name: name }) })
+            .then(function() {
                 document.getElementById('new-account-name').value = '';
                 loadAccounts();
                 setStatus('Account created', 'ok');
-            } catch (e) {
-                setStatus('Error: ' + e.message, 'error');
-            }
-        }
+            }).catch(function(e) { setStatus('Error: ' + e.message, 'error'); });
+        };
 
-        // --- TRANSFER ---
-        async function sendTransfer() {
-            const from_id = document.getElementById('tx-from').value;
-            const to_id = document.getElementById('tx-to').value.trim();
-            const amount = parseFloat(document.getElementById('tx-amount').value);
-            const note = document.getElementById('tx-note').value.trim();
+        window.sendTransfer = function() {
+            var from_id = document.getElementById('tx-from').value;
+            var to_id = document.getElementById('tx-to').value.trim();
+            var amount = parseFloat(document.getElementById('tx-amount').value);
+            var note = document.getElementById('tx-note').value.trim();
             if (!from_id || !to_id || !amount) return setStatus('Fill all fields', 'error');
-            try {
-                await apiFetch('/api/transfer', { method: 'POST', body: JSON.stringify({ from_id, to_id, amount, note }) });
+            apiFetch('/api/transfer', { method: 'POST', body: JSON.stringify({ from_id: from_id, to_id: to_id, amount: amount, note: note }) })
+            .then(function() {
                 document.getElementById('tx-amount').value = '';
                 document.getElementById('tx-note').value = '';
                 loadAccounts();
                 setStatus('Transfer sent!', 'ok');
-            } catch (e) {
-                setStatus('Transfer failed: ' + e.message, 'error');
-            }
-        }
+            }).catch(function(e) { setStatus('Transfer failed: ' + e.message, 'error'); });
+        };
 
-        // --- DOUBLONS ---
-        async function doublonsAction(action) {
-            const email = document.getElementById('doublons-email').value.trim();
-            const password = document.getElementById('doublons-pw').value;
+        window.doublonsAction = function(action) {
+            var email = document.getElementById('doublons-email').value.trim();
+            var password = document.getElementById('doublons-pw').value;
             if (!email || !password) return setStatus('Enter email and password', 'error');
-            try {
-                const data = await apiFetch('/api/doublons/' + action, { method: 'POST', body: JSON.stringify({ email, password }) });
+            apiFetch('/api/doublons/' + action, { method: 'POST', body: JSON.stringify({ email: email, password: password }) })
+            .then(function(data) {
                 doublonsToken = data.token;
                 document.getElementById('doublons-status').innerHTML = '<div class="status ok">Connected to Doublons Bank</div>';
                 loadDoublonsAccounts();
-            } catch (e) {
+            }).catch(function(e) {
                 document.getElementById('doublons-status').innerHTML = '<div class="status error">' + e.message + '</div>';
-            }
-        }
+            });
+        };
 
-        async function loadDoublonsAccounts() {
+        function loadDoublonsAccounts() {
             if (!doublonsToken) return;
-            try {
-                const r = await fetch(API + '/api/doublons/accounts', {
-                    headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
-                    method: 'POST',
-                    body: JSON.stringify({ token: doublonsToken })
-                });
-                const data = await r.json();
-                if (r.ok && data.accounts) {
-                    document.getElementById('doublons-accounts-card').style.display = 'block';
-                    document.getElementById('doublons-accounts-list').innerHTML = data.accounts.map(a =>
-                        '<div class="account"><span>' + a.name + ' (ID: ' + a.id + ')</span><span>$' + (a.balance || 0) + '</span></div>'
-                    ).join('');
+            fetch(API + '/api/doublons/accounts', {
+                headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
+                method: 'POST',
+                body: JSON.stringify({ token: doublonsToken })
+            }).then(function(r) { return r.json(); })
+            .then(function(data) {
+                if (data.accounts) {
+                    document.getElementById('doublons-accounts-card').classList.remove('hidden');
+                    document.getElementById('doublons-accounts-list').innerHTML = data.accounts.map(function(a) {
+                        return '<div class="account"><span>' + escapeHtml(a.name) + ' (ID: ' + a.id + ')</span><span>$' + (a.balance || 0) + '</span></div>';
+                    }).join('');
                 }
-            } catch (e) {
-                console.error('Doublons accounts error:', e);
-            }
+            }).catch(function(e) { console.error('Doublons accounts error:', e); });
         }
 
-        async function linkDoublons() {
-            const accountId = document.getElementById('doublons-link-account').value;
-            const doublonsAccountId = document.getElementById('doublons-link-id').value.trim();
+        window.linkDoublons = function() {
+            var accountId = document.getElementById('doublons-link-account').value;
+            var doublonsAccountId = document.getElementById('doublons-link-id').value.trim();
             if (!accountId || !doublonsAccountId || !doublonsToken) return setStatus('Fill all fields and login to Doublons first', 'error');
-            try {
-                await apiFetch('/api/accounts/' + accountId + '/link-doublons', {
-                    method: 'POST',
-                    body: JSON.stringify({ token: doublonsToken, doublons_account_id: doublonsAccountId })
-                });
-                loadAccounts();
-                setStatus('Doublons account linked!', 'ok');
-            } catch (e) {
-                setStatus('Error: ' + e.message, 'error');
-            }
-        }
+            apiFetch('/api/accounts/' + accountId + '/link-doublons', { method: 'POST', body: JSON.stringify({ token: doublonsToken, doublons_account_id: doublonsAccountId }) })
+            .then(function() { loadAccounts(); setStatus('Doublons account linked!', 'ok'); })
+            .catch(function(e) { setStatus('Error: ' + e.message, 'error'); });
+        };
 
-        async function withdrawDoublons() {
-            const accountId = document.getElementById('wd-from').value;
-            const to = document.getElementById('wd-to').value.trim();
-            const amount = parseFloat(document.getElementById('wd-amount').value);
+        window.withdrawDoublons = function() {
+            var accountId = document.getElementById('wd-from').value;
+            var to = document.getElementById('wd-to').value.trim();
+            var amount = parseFloat(document.getElementById('wd-amount').value);
             if (!accountId || !to || !amount) return setStatus('Fill all fields', 'error');
-            try {
-                await apiFetch('/api/accounts/' + accountId + '/withdraw-doublons', {
-                    method: 'POST',
-                    body: JSON.stringify({ to_doublons_account: to, amount })
-                });
-                loadAccounts();
-                setStatus('Withdrawal sent!', 'ok');
-            } catch (e) {
-                setStatus('Error: ' + e.message, 'error');
-            }
-        }
+            apiFetch('/api/accounts/' + accountId + '/withdraw-doublons', { method: 'POST', body: JSON.stringify({ to_doublons_account: to, amount: amount }) })
+            .then(function() { loadAccounts(); setStatus('Withdrawal sent!', 'ok'); })
+            .catch(function(e) { setStatus('Error: ' + e.message, 'error'); });
+        };
 
-        async function depositDoublons() {
-            const from = document.getElementById('dep-from').value.trim();
-            const accountId = document.getElementById('dep-to').value;
-            const amount = parseFloat(document.getElementById('dep-amount').value);
+        window.depositDoublons = function() {
+            var from = document.getElementById('dep-from').value.trim();
+            var accountId = document.getElementById('dep-to').value;
+            var amount = parseFloat(document.getElementById('dep-amount').value);
             if (!from || !accountId || !amount) return setStatus('Fill all fields', 'error');
-            try {
-                await apiFetch('/api/accounts/' + accountId + '/deposit-doublons', {
-                    method: 'POST',
-                    body: JSON.stringify({ from_doublons_account: from, amount })
-                });
-                loadAccounts();
-                setStatus('Deposit received!', 'ok');
-            } catch (e) {
-                setStatus('Error: ' + e.message, 'error');
-            }
-        }
+            apiFetch('/api/accounts/' + accountId + '/deposit-doublons', { method: 'POST', body: JSON.stringify({ from_doublons_account: from, amount: amount }) })
+            .then(function() { loadAccounts(); setStatus('Deposit received!', 'ok'); })
+            .catch(function(e) { setStatus('Error: ' + e.message, 'error'); });
+        };
 
-        // --- REQUESTS ---
-        async function sendRequest() {
-            const to = document.getElementById('req-to').value.trim();
-            const amount = parseFloat(document.getElementById('req-amount').value);
-            const note = document.getElementById('req-note').value.trim();
+        window.sendRequest = function() {
+            var to = document.getElementById('req-to').value.trim();
+            var amount = parseFloat(document.getElementById('req-amount').value);
+            var note = document.getElementById('req-note').value.trim();
             if (!to || !amount) return setStatus('Fill all fields', 'error');
-            try {
-                await apiFetch('/api/request', { method: 'POST', body: JSON.stringify({ to_account_id: to, amount, note }) });
+            apiFetch('/api/request', { method: 'POST', body: JSON.stringify({ to_account_id: to, amount: amount, note: note }) })
+            .then(function() {
                 document.getElementById('req-to').value = '';
                 document.getElementById('req-amount').value = '';
                 document.getElementById('req-note').value = '';
                 setStatus('Request sent!', 'ok');
-            } catch (e) {
-                setStatus('Error: ' + e.message, 'error');
-            }
-        }
+            }).catch(function(e) { setStatus('Error: ' + e.message, 'error'); });
+        };
 
-        async function loadRequests() {
-            try {
-                const requests = await apiFetch('/api/requests');
-                const list = document.getElementById('requests-list');
+        function loadRequests() {
+            if (!token) return;
+            apiFetch('/api/requests').then(function(requests) {
+                var list = document.getElementById('requests-list');
                 if (requests.length === 0) {
                     list.innerHTML = '<p style="color:#78909c;">No pending requests.</p>';
                     return;
                 }
-                list.innerHTML = requests.map(r => {
-                    const isIncoming = r.to === localStorage.getItem('fp_user');
+                list.innerHTML = requests.map(function(r) {
+                    var decoded;
+                    try { decoded = jwt_decode(token); } catch(e) { decoded = {}; }
+                    var myUser = decoded.username || '';
+                    var isIncoming = r.to === myUser;
                     return '<div class="transaction">' +
                         '<div><strong>' + (isIncoming ? 'From: ' + r.from : 'To: ' + r.to) + '</strong><br>' +
                         '<span class="tx-date">' + new Date(r.createdAt).toLocaleString() + '</span></div>' +
@@ -413,42 +428,52 @@
                         (isIncoming ? ' <button class="success" onclick="approveReq(\'' + r._id + '\')">Approve</button> <button class="danger" onclick="denyReq(\'' + r._id + '\')">Deny</button>' : '') +
                         '</div></div>';
                 }).join('');
-            } catch (e) {
-                setStatus('Error loading requests: ' + e.message, 'error');
-            }
+            }).catch(function(e) { setStatus('Error: ' + e.message, 'error'); });
         }
 
-        async function approveReq(id) {
-            try { await apiFetch('/api/requests/' + id + '/approve', { method: 'POST', body: '{}' }); loadRequests(); loadAccounts(); setStatus('Approved!', 'ok'); } catch (e) { setStatus(e.message, 'error'); }
-        }
-
-        async function denyReq(id) {
-            try { await apiFetch('/api/requests/' + id + '/deny', { method: 'POST', body: '{}' }); loadRequests(); setStatus('Denied.', 'info'); } catch (e) { setStatus(e.message, 'error'); }
-        }
-
-        // --- HISTORY ---
-        async function loadHistory() {
+        function jwt_decode(token) {
             try {
-                const txs = await apiFetch('/api/transactions');
-                const list = document.getElementById('history-list');
+                var base64Url = token.split('.')[1];
+                var base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+                return JSON.parse(atob(base64));
+            } catch(e) { return {}; }
+        }
+
+        window.approveReq = function(id) {
+            apiFetch('/api/requests/' + id + '/approve', { method: 'POST', body: '{}' })
+            .then(function() { loadRequests(); loadAccounts(); setStatus('Approved!', 'ok'); })
+            .catch(function(e) { setStatus(e.message, 'error'); });
+        };
+
+        window.denyReq = function(id) {
+            apiFetch('/api/requests/' + id + '/deny', { method: 'POST', body: '{}' })
+            .then(function() { loadRequests(); setStatus('Denied.', 'info'); })
+            .catch(function(e) { setStatus(e.message, 'error'); });
+        };
+
+        function loadHistory() {
+            if (!token) return;
+            apiFetch('/api/transactions').then(function(txs) {
+                var list = document.getElementById('history-list');
                 if (txs.length === 0) {
                     list.innerHTML = '<p style="color:#78909c;">No transactions yet.</p>';
                     return;
                 }
-                list.innerHTML = txs.map(tx => {
-                    const isOut = accounts.some(a => a._id === tx.from);
+                list.innerHTML = txs.map(function(tx) {
+                    var isOut = accounts.some(function(a) { return a._id === tx.from; });
                     return '<div class="transaction">' +
                         '<div><span class="' + (isOut ? 'tx-out' : 'tx-in') + '">' + (isOut ? 'Sent' : 'Received') + '</span> ' +
-                        '<span class="tx-date">' + new Date(tx.createdAt).toLocaleString() + ' · ' + tx.type + '</span></div>' +
+                        '<span class="tx-date">' + new Date(tx.createdAt).toLocaleString() + ' - ' + tx.type + '</span></div>' +
                         '<span class="' + (isOut ? 'tx-out' : 'tx-in') + '">$' + tx.amount.toFixed(2) + '</span></div>';
                 }).join('');
-            } catch (e) {
-                setStatus('Error loading history: ' + e.message, 'error');
-            }
+            }).catch(function(e) { setStatus('Error: ' + e.message, 'error'); });
         }
 
-        // Init
-        loadAccounts();
+        // INIT
+        if (!tryAutoLogin()) {
+            showScreen('login-screen');
+        }
+    })();
     </script>
 </body>
 </html>
