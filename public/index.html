@@ -1,0 +1,438 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Family Payments</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #0a0e17; color: #e0e0e0; min-height: 100vh; }
+        .container { max-width: 900px; margin: 0 auto; padding: 20px; }
+        h1 { color: #4fc3f7; margin-bottom: 8px; }
+        .subtitle { color: #78909c; margin-bottom: 24px; }
+        .card { background: #111827; border: 1px solid #1e293b; border-radius: 12px; padding: 20px; margin-bottom: 16px; }
+        .card h2 { color: #4fc3f7; font-size: 1.1em; margin-bottom: 12px; }
+        .account { display: flex; justify-content: space-between; align-items: center; padding: 12px; background: #1a2332; border-radius: 8px; margin-bottom: 8px; }
+        .account-name { font-weight: 600; }
+        .account-balance { color: #66bb6a; font-size: 1.2em; font-weight: 700; }
+        .account-meta { color: #78909c; font-size: 0.85em; }
+        .doublons-badge { display: inline-block; background: #1b5e20; color: #a5d6a7; padding: 2px 8px; border-radius: 4px; font-size: 0.75em; margin-left: 8px; }
+        button { background: #1565c0; color: white; border: none; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-size: 0.95em; margin: 4px; }
+        button:hover { background: #1976d2; }
+        button.danger { background: #c62828; }
+        button.danger:hover { background: #d32f2f; }
+        button.success { background: #2e7d32; }
+        button.success:hover { background: #388e3c; }
+        input, select { background: #1a2332; border: 1px solid #2d3748; color: #e0e0e0; padding: 10px 12px; border-radius: 8px; font-size: 0.95em; width: 100%; margin-bottom: 8px; }
+        input::placeholder { color: #546e7a; }
+        label { display: block; color: #90a4ae; margin-bottom: 4px; font-size: 0.9em; }
+        .form-row { display: flex; gap: 12px; }
+        .form-row > * { flex: 1; }
+        .status { padding: 8px 12px; border-radius: 8px; margin-bottom: 12px; }
+        .status.ok { background: #1b5e20; color: #a5d6a7; }
+        .status.error { background: #b71c1c; color: #ef9a9a; }
+        .status.info { background: #0d47a1; color: #90caf9; }
+        .hidden { display: none; }
+        .transaction { display: flex; justify-content: space-between; align-items: center; padding: 10px; background: #1a2332; border-radius: 8px; margin-bottom: 6px; font-size: 0.9em; }
+        .tx-in { color: #66bb6a; }
+        .tx-out { color: #ef5350; }
+        .tx-date { color: #78909c; font-size: 0.8em; }
+        .tabs { display: flex; gap: 8px; margin-bottom: 16px; }
+        .tabs button { flex: 1; }
+        .tabs button.active { background: #0d47a1; }
+        #status-bar { margin-bottom: 16px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Family Payments</h1>
+        <p class="subtitle">Send and receive money — linked to Doublons Bank</p>
+        <div id="status-bar"></div>
+
+        <div class="tabs">
+            <button class="active" onclick="showTab('accounts')">Accounts</button>
+            <button onclick="showTab('transfer')">Transfer</button>
+            <button onclick="showTab('doublons')">Doublons Bank</button>
+            <button onclick="showTab('requests')">Requests</button>
+            <button onclick="showTab('history')">History</button>
+        </div>
+
+        <!-- ACCOUNTS TAB -->
+        <div id="tab-accounts" class="tab-content">
+            <div class="card">
+                <h2>Your Accounts</h2>
+                <div id="accounts-list"></div>
+                <div style="margin-top:12px;">
+                    <div class="form-row">
+                        <input type="text" id="new-account-name" placeholder="Account name (e.g. Checking)">
+                        <button onclick="createAccount()">Create Account</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- TRANSFER TAB -->
+        <div id="tab-transfer" class="tab-content hidden">
+            <div class="card">
+                <h2>Internal Transfer</h2>
+                <label>From Account</label>
+                <select id="tx-from"></select>
+                <label>To Account ID</label>
+                <input type="text" id="tx-to" placeholder="Paste account ID">
+                <div class="form-row">
+                    <input type="number" id="tx-amount" step="0.01" min="0.01" placeholder="0.00">
+                    <input type="text" id="tx-note" placeholder="Note (optional)">
+                </div>
+                <button class="success" onclick="sendTransfer()">Send Money</button>
+            </div>
+        </div>
+
+        <!-- DOUBLONS TAB -->
+        <div id="tab-doublons" class="tab-content hidden">
+            <div class="card">
+                <h2>Link Doublons Bank</h2>
+                <p style="color:#78909c;margin-bottom:12px;">Connect your Doublons Bank account to send/receive money.</p>
+                <label>Email</label>
+                <input type="email" id="doublons-email" placeholder="your@email.com">
+                <label>Password</label>
+                <input type="password" id="doublons-pw" placeholder="Password">
+                <div style="margin-top:8px;">
+                    <button onclick="doublonsAction('register')">Register</button>
+                    <button onclick="doublonsAction('login')">Login</button>
+                </div>
+                <div id="doublons-status"></div>
+            </div>
+            <div class="card" id="doublons-accounts-card" style="display:none;">
+                <h2>Doublons Accounts</h2>
+                <div id="doublons-accounts-list"></div>
+                <label>Link to Payment Account</label>
+                <select id="doublons-link-account"></select>
+                <label>Doublons Account ID</label>
+                <input type="text" id="doublons-link-id" placeholder="Account ID from Doublons Bank">
+                <button class="success" onclick="linkDoublons()">Link Account</button>
+            </div>
+            <div class="card">
+                <h2>Withdraw to Doublons Bank</h2>
+                <label>From Payment Account</label>
+                <select id="wd-from"></select>
+                <label>To Doublons Account ID</label>
+                <input type="text" id="wd-to" placeholder="Doublons account ID">
+                <input type="number" id="wd-amount" step="0.01" min="0.01" placeholder="Amount">
+                <button class="success" onclick="withdrawDoublons()">Withdraw</button>
+            </div>
+            <div class="card">
+                <h2>Deposit from Doublons Bank</h2>
+                <label>From Doublons Account ID</label>
+                <input type="text" id="dep-from" placeholder="Doublons account ID">
+                <label>To Payment Account</label>
+                <select id="dep-to"></select>
+                <input type="number" id="dep-amount" step="0.01" min="0.01" placeholder="Amount">
+                <button class="success" onclick="depositDoublons()">Deposit</button>
+            </div>
+        </div>
+
+        <!-- REQUESTS TAB -->
+        <div id="tab-requests" class="tab-content hidden">
+            <div class="card">
+                <h2>Request Money</h2>
+                <label>From Account ID</label>
+                <input type="text" id="req-to" placeholder="Their account ID">
+                <input type="number" id="req-amount" step="0.01" min="0.01" placeholder="Amount">
+                <input type="text" id="req-note" placeholder="Note">
+                <button class="success" onclick="sendRequest()">Send Request</button>
+            </div>
+            <div class="card">
+                <h2>Pending Requests</h2>
+                <div id="requests-list"></div>
+            </div>
+        </div>
+
+        <!-- HISTORY TAB -->
+        <div id="tab-history" class="tab-content hidden">
+            <div class="card">
+                <h2>Transaction History</h2>
+                <div id="history-list"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API = window.location.origin;
+        let token = localStorage.getItem('fp_token');
+        let accounts = [];
+        let doublonsToken = null;
+
+        function showTab(tab) {
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
+            document.getElementById('tab-' + tab).classList.remove('hidden');
+            document.querySelectorAll('.tabs button').forEach(b => b.classList.remove('active'));
+            event.target.classList.add('active');
+            if (tab === 'accounts') loadAccounts();
+            if (tab === 'transfer') loadAccounts();
+            if (tab === 'history') loadHistory();
+            if (tab === 'requests') loadRequests();
+        }
+
+        function setStatus(msg, type) {
+            const el = document.getElementById('status-bar');
+            el.innerHTML = '<div class="status ' + type + '">' + msg + '</div>';
+            if (type !== 'error') setTimeout(() => el.innerHTML = '', 4000);
+        }
+
+        async function apiFetch(path, opts = {}) {
+            const headers = { 'Content-Type': 'application/json' };
+            if (token) headers['Authorization'] = 'Bearer ' + token;
+            const r = await fetch(API + path, { ...opts, headers });
+            const data = await r.json();
+            if (!r.ok) throw new Error(data.error || 'Request failed');
+            return data;
+        }
+
+        // --- AUTH ---
+        if (!token) {
+            const pw = prompt('Enter your Family Finance password:');
+            const user = prompt('Enter your Family Finance username:');
+            if (pw && user) {
+                try {
+                    // Try to get a token from family-finance
+                    const r = await fetch('https://family-finance-olive-nine.vercel.app/api/login', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ username: user, password: pw })
+                    });
+                    const data = await r.json();
+                    if (r.ok && data.token) {
+                        token = data.token;
+                        localStorage.setItem('fp_token', token);
+                        setStatus('Logged in as ' + user, 'ok');
+                    } else {
+                        setStatus('Login failed: ' + (data.error || 'Unknown'), 'error');
+                    }
+                } catch (e) {
+                    setStatus('Login failed: ' + e.message, 'error');
+                }
+            }
+        }
+
+        // --- ACCOUNTS ---
+        async function loadAccounts() {
+            try {
+                accounts = await apiFetch('/api/accounts');
+                renderAccounts();
+            } catch (e) {
+                setStatus('Failed to load accounts: ' + e.message, 'error');
+            }
+        }
+
+        function renderAccounts() {
+            const list = document.getElementById('accounts-list');
+            const selects = ['tx-from', 'doublons-link-account', 'wd-from', 'dep-to'];
+            if (accounts.length === 0) {
+                list.innerHTML = '<p style="color:#78909c;">No accounts yet. Create one above.</p>';
+            } else {
+                list.innerHTML = accounts.map(a =>
+                    '<div class="account">' +
+                    '<div><span class="account-name">' + a.name + '</span>' +
+                    (a.doublonsAccountId ? '<span class="doublons-badge">Doublons Linked</span>' : '') +
+                    '<br><span class="account-meta">ID: ' + a._id + '</span></div>' +
+                    '<div style="text-align:right;"><span class="account-balance">$' + a.balance.toFixed(2) + '</span>' +
+                    '<br><span class="account-meta">' + a.currency + '</span></div></div>'
+                ).join('');
+            }
+            selects.forEach(id => {
+                const sel = document.getElementById(id);
+                if (sel) {
+                    sel.innerHTML = accounts.map(a => '<option value="' + a._id + '">' + a.name + ' ($' + a.balance.toFixed(2) + ')</option>').join('');
+                }
+            });
+        }
+
+        async function createAccount() {
+            const name = document.getElementById('new-account-name').value.trim();
+            if (!name) return;
+            try {
+                await apiFetch('/api/accounts', { method: 'POST', body: JSON.stringify({ name }) });
+                document.getElementById('new-account-name').value = '';
+                loadAccounts();
+                setStatus('Account created', 'ok');
+            } catch (e) {
+                setStatus('Error: ' + e.message, 'error');
+            }
+        }
+
+        // --- TRANSFER ---
+        async function sendTransfer() {
+            const from_id = document.getElementById('tx-from').value;
+            const to_id = document.getElementById('tx-to').value.trim();
+            const amount = parseFloat(document.getElementById('tx-amount').value);
+            const note = document.getElementById('tx-note').value.trim();
+            if (!from_id || !to_id || !amount) return setStatus('Fill all fields', 'error');
+            try {
+                await apiFetch('/api/transfer', { method: 'POST', body: JSON.stringify({ from_id, to_id, amount, note }) });
+                document.getElementById('tx-amount').value = '';
+                document.getElementById('tx-note').value = '';
+                loadAccounts();
+                setStatus('Transfer sent!', 'ok');
+            } catch (e) {
+                setStatus('Transfer failed: ' + e.message, 'error');
+            }
+        }
+
+        // --- DOUBLONS ---
+        async function doublonsAction(action) {
+            const email = document.getElementById('doublons-email').value.trim();
+            const password = document.getElementById('doublons-pw').value;
+            if (!email || !password) return setStatus('Enter email and password', 'error');
+            try {
+                const data = await apiFetch('/api/doublons/' + action, { method: 'POST', body: JSON.stringify({ email, password }) });
+                doublonsToken = data.token;
+                document.getElementById('doublons-status').innerHTML = '<div class="status ok">Connected to Doublons Bank</div>';
+                loadDoublonsAccounts();
+            } catch (e) {
+                document.getElementById('doublons-status').innerHTML = '<div class="status error">' + e.message + '</div>';
+            }
+        }
+
+        async function loadDoublonsAccounts() {
+            if (!doublonsToken) return;
+            try {
+                const r = await fetch(API + '/api/doublons/accounts', {
+                    headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
+                    method: 'POST',
+                    body: JSON.stringify({ token: doublonsToken })
+                });
+                const data = await r.json();
+                if (r.ok && data.accounts) {
+                    document.getElementById('doublons-accounts-card').style.display = 'block';
+                    document.getElementById('doublons-accounts-list').innerHTML = data.accounts.map(a =>
+                        '<div class="account"><span>' + a.name + ' (ID: ' + a.id + ')</span><span>$' + (a.balance || 0) + '</span></div>'
+                    ).join('');
+                }
+            } catch (e) {
+                console.error('Doublons accounts error:', e);
+            }
+        }
+
+        async function linkDoublons() {
+            const accountId = document.getElementById('doublons-link-account').value;
+            const doublonsAccountId = document.getElementById('doublons-link-id').value.trim();
+            if (!accountId || !doublonsAccountId || !doublonsToken) return setStatus('Fill all fields and login to Doublons first', 'error');
+            try {
+                await apiFetch('/api/accounts/' + accountId + '/link-doublons', {
+                    method: 'POST',
+                    body: JSON.stringify({ token: doublonsToken, doublons_account_id: doublonsAccountId })
+                });
+                loadAccounts();
+                setStatus('Doublons account linked!', 'ok');
+            } catch (e) {
+                setStatus('Error: ' + e.message, 'error');
+            }
+        }
+
+        async function withdrawDoublons() {
+            const accountId = document.getElementById('wd-from').value;
+            const to = document.getElementById('wd-to').value.trim();
+            const amount = parseFloat(document.getElementById('wd-amount').value);
+            if (!accountId || !to || !amount) return setStatus('Fill all fields', 'error');
+            try {
+                await apiFetch('/api/accounts/' + accountId + '/withdraw-doublons', {
+                    method: 'POST',
+                    body: JSON.stringify({ to_doublons_account: to, amount })
+                });
+                loadAccounts();
+                setStatus('Withdrawal sent!', 'ok');
+            } catch (e) {
+                setStatus('Error: ' + e.message, 'error');
+            }
+        }
+
+        async function depositDoublons() {
+            const from = document.getElementById('dep-from').value.trim();
+            const accountId = document.getElementById('dep-to').value;
+            const amount = parseFloat(document.getElementById('dep-amount').value);
+            if (!from || !accountId || !amount) return setStatus('Fill all fields', 'error');
+            try {
+                await apiFetch('/api/accounts/' + accountId + '/deposit-doublons', {
+                    method: 'POST',
+                    body: JSON.stringify({ from_doublons_account: from, amount })
+                });
+                loadAccounts();
+                setStatus('Deposit received!', 'ok');
+            } catch (e) {
+                setStatus('Error: ' + e.message, 'error');
+            }
+        }
+
+        // --- REQUESTS ---
+        async function sendRequest() {
+            const to = document.getElementById('req-to').value.trim();
+            const amount = parseFloat(document.getElementById('req-amount').value);
+            const note = document.getElementById('req-note').value.trim();
+            if (!to || !amount) return setStatus('Fill all fields', 'error');
+            try {
+                await apiFetch('/api/request', { method: 'POST', body: JSON.stringify({ to_account_id: to, amount, note }) });
+                document.getElementById('req-to').value = '';
+                document.getElementById('req-amount').value = '';
+                document.getElementById('req-note').value = '';
+                setStatus('Request sent!', 'ok');
+            } catch (e) {
+                setStatus('Error: ' + e.message, 'error');
+            }
+        }
+
+        async function loadRequests() {
+            try {
+                const requests = await apiFetch('/api/requests');
+                const list = document.getElementById('requests-list');
+                if (requests.length === 0) {
+                    list.innerHTML = '<p style="color:#78909c;">No pending requests.</p>';
+                    return;
+                }
+                list.innerHTML = requests.map(r => {
+                    const isIncoming = r.to === localStorage.getItem('fp_user');
+                    return '<div class="transaction">' +
+                        '<div><strong>' + (isIncoming ? 'From: ' + r.from : 'To: ' + r.to) + '</strong><br>' +
+                        '<span class="tx-date">' + new Date(r.createdAt).toLocaleString() + '</span></div>' +
+                        '<div style="text-align:right;"><span class="' + (isIncoming ? 'tx-in' : 'tx-out') + '">$' + r.amount.toFixed(2) + '</span>' +
+                        (isIncoming ? ' <button class="success" onclick="approveReq(\'' + r._id + '\')">Approve</button> <button class="danger" onclick="denyReq(\'' + r._id + '\')">Deny</button>' : '') +
+                        '</div></div>';
+                }).join('');
+            } catch (e) {
+                setStatus('Error loading requests: ' + e.message, 'error');
+            }
+        }
+
+        async function approveReq(id) {
+            try { await apiFetch('/api/requests/' + id + '/approve', { method: 'POST', body: '{}' }); loadRequests(); loadAccounts(); setStatus('Approved!', 'ok'); } catch (e) { setStatus(e.message, 'error'); }
+        }
+
+        async function denyReq(id) {
+            try { await apiFetch('/api/requests/' + id + '/deny', { method: 'POST', body: '{}' }); loadRequests(); setStatus('Denied.', 'info'); } catch (e) { setStatus(e.message, 'error'); }
+        }
+
+        // --- HISTORY ---
+        async function loadHistory() {
+            try {
+                const txs = await apiFetch('/api/transactions');
+                const list = document.getElementById('history-list');
+                if (txs.length === 0) {
+                    list.innerHTML = '<p style="color:#78909c;">No transactions yet.</p>';
+                    return;
+                }
+                list.innerHTML = txs.map(tx => {
+                    const isOut = accounts.some(a => a._id === tx.from);
+                    return '<div class="transaction">' +
+                        '<div><span class="' + (isOut ? 'tx-out' : 'tx-in') + '">' + (isOut ? 'Sent' : 'Received') + '</span> ' +
+                        '<span class="tx-date">' + new Date(tx.createdAt).toLocaleString() + ' · ' + tx.type + '</span></div>' +
+                        '<span class="' + (isOut ? 'tx-out' : 'tx-in') + '">$' + tx.amount.toFixed(2) + '</span></div>';
+                }).join('');
+            } catch (e) {
+                setStatus('Error loading history: ' + e.message, 'error');
+            }
+        }
+
+        // Init
+        loadAccounts();
+    </script>
+</body>
+</html>

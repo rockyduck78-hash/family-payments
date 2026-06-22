@@ -1,0 +1,17 @@
+{
+  "name": "family-payments",
+  "version": "1.0.0",
+  "description": "Payment processor for Family Finance - bridges Doublons Bank integration",
+  "main": "api/index.js",
+  "scripts": {
+    "start": "node api/index.js",
+    "dev": "node api/index.js"
+  },
+  "dependencies": {
+    "express": "^4.21.0",
+    "mongoose": "^9.7.0",
+    "jsonwebtoken": "^9.0.2",
+    "bcryptjs": "^3.0.3",
+    "express-rate-limit": "^6.11.2"
+  }
+}
